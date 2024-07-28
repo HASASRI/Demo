@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Planning App</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+<!-- Splash Screen -->
+    <div id="splash-screen">
+        <img src="C:\Users\Hasas\Downloads\Budget planner.png" alt="Splash Image">
+    </div>
+
+    <div class="container" id="budget-container">
+        <h1>Budget Planner</h1>
+        
+        <!-- Month selection outside the form -->
+        <div class="month-box">
+            <select id="month-select">
+                <option value="" disabled selected>Select Month</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+            </select>
+        </div>
+
+        <form id="budget-form">
+            <input type="text" id="description-input" placeholder="Ex.Salary,Milk,Petrol etc" required>
+            <input type="number" id="amount-input" placeholder="Amount" required>
+            <select id="type-select" required>
+                <option value="" disabled selected>Select Type</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <button type="submit">Add Item</button>
+        </form>
+        
+        <div class="budget-summary">
+            <h2>Summary</h2>
+            <p>Total Income: <span id="total-income">0</span></p>
+            <p>Total Expenses: <span id="total-expenses">0</span></p>
+            <p>Balance: <span id="balance" class="balance-box">0</span></p>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Income</th>
+                    <th>Expense</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <ul id="income-list"></ul>
+                    </td>
+                    <td>
+                        <ul id="expense-list"></ul>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <br>
+        <button id="save-plan">Save Plan</button>
+        <button id="new-plan">New Plan</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.0.0-rc.7/dist/html2canvas.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const budgetForm = document.getElementById('budget-form');
+            const incomeList = document.getElementById('income-list');
+            const expenseList = document.getElementById('expense-list');
+            const totalIncomeElem = document.getElementById('total-income');
+            const totalExpensesElem = document.getElementById('total-expenses');
+            const balanceElem = document.getElementById('balance');
+            const monthSelect = document.getElementById('month-select');
+            const newPlanButton = document.getElementById('new-plan');
+            let selectedMonth = '';
+
+            // Load data from localStorage
+            let totalIncome = parseFloat(localStorage.getItem('totalIncome')) || 0;
+            let totalExpenses = parseFloat(localStorage.getItem('totalExpenses')) || 0;
+            selectedMonth = localStorage.getItem('selectedMonth') || '';
+            monthSelect.value = selectedMonth;
+
+            const incomeData = JSON.parse(localStorage.getItem('incomeData')) || [];
+            const expenseData = JSON.parse(localStorage.getItem('expenseData')) || [];
+
+            incomeData.forEach(item => addListItem(item.description, item.amount, 'income'));
+            expenseData.forEach(item => addListItem(item.description, item.amount, 'expense'));
+
+            updateSummary();
+
+            monthSelect.addEventListener('change', function() {
+                selectedMonth = monthSelect.value;
+                localStorage.setItem('selectedMonth', selectedMonth);
+            });
+
+            budgetForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                const descriptionInput = document.getElementById('description-input');
+                const amountInput = document.getElementById('amount-input');
+                const typeSelect = document.getElementById('type-select');
+
+                const description = descriptionInput.value;
+                const amount = parseFloat(amountInput.value);
+                const type = typeSelect.value;
+
+                if (!selectedMonth || !description || isNaN(amount) || !type) {
+                    alert('Please fill out all fields and select a month.');
+                    return;
+                }
+
+                addListItem(description, amount, type);
+                
+                if (type === 'income') {
+                    totalIncome += amount;
+                    incomeData.push({ description, amount });
+                    localStorage.setItem('incomeData', JSON.stringify(incomeData));
+                } else if (type === 'expense') {
+                    totalExpenses += amount;
+                    expenseData.push({ description, amount });
+                    localStorage.setItem('expenseData', JSON.stringify(expenseData));
+                }
+
+                localStorage.setItem('totalIncome', totalIncome);
+                localStorage.setItem('totalExpenses', totalExpenses);
+                
+                updateSummary();
+
+                descriptionInput.value = '';
+                amountInput.value = '';
+                typeSelect.selectedIndex = 0;
+            });
+
+            function addListItem(description, amount, type) {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `${description} Rs.${amount.toFixed(2)} 
+                                      <span class="icons">
+                                        <i class="fas fa-pen edit-icon"></i>
+                                        <i class="fas fa-trash delete-icon"></i>
+                                      </span>`;
+                if (type === 'income') {
+                    incomeList.appendChild(listItem);
+                } else if (type === 'expense') {
+                    expenseList.appendChild(listItem);
+                }
+            }
+
+            incomeList.addEventListener('click', function(event) {
+                if (event.target.classList.contains('delete-icon')) {
+                    deleteItem(event.target.closest('li'), 'income');
+                } else if (event.target.classList.contains('edit-icon')) {
+                    editItem(event.target.closest('li'), 'income');
+                }
+            });
+
+            expenseList.addEventListener('click', function(event) {
+                if (event.target.classList.contains('delete-icon')) {
+                    deleteItem(event.target.closest('li'), 'expense');
+                } else if (event.target.classList.contains('edit-icon')) {
+                    editItem(event.target.closest('li'), 'expense');
+                }
+            });
+
+            function deleteItem(itemElement, type) {
+                const amount = parseFloat(itemElement.textContent.split(' Rs.')[1]);
+                const description = itemElement.textContent.split(' Rs.')[0].trim();
+                
+                if (type === 'income') {
+                    totalIncome -= amount;
+                    incomeList.removeChild(itemElement);
+                    const index = incomeData.findIndex(item => item.description === description && item.amount === amount);
+                    incomeData.splice(index, 1);
+                    localStorage.setItem('incomeData', JSON.stringify(incomeData));
+                } else {
+                    totalExpenses -= amount;
+                    expenseList.removeChild(itemElement);
+                    const index = expenseData.findIndex(item => item.description === description && item.amount === amount);
+                    expenseData.splice(index, 1);
+                    localStorage.setItem('expenseData', JSON.stringify(expenseData));
+                }
+
+                localStorage.setItem('totalIncome', totalIncome);
+                localStorage.setItem('totalExpenses', totalExpenses);
+
+                updateSummary();
+            }
+
+            function editItem(itemElement, type) {
+                const [description, amount] = itemElement.textContent.split(' Rs.');
+                document.getElementById('description-input').value = description.trim();
+                document.getElementById('amount-input').value = parseFloat(amount).toFixed(2);
+                document.getElementById('type-select').value = type;
+
+                deleteItem(itemElement, type);
+            }
+
+            function updateSummary() {
+                const balance = totalIncome - totalExpenses;
+                totalIncomeElem.textContent = totalIncome.toFixed(2);
+                totalExpensesElem.textContent = totalExpenses.toFixed(2);
+                balanceElem.textContent = balance.toFixed(2);
+            }
+
+            document.getElementById('save-plan').addEventListener('click', function() {
+                html2canvas(document.getElementById('budget-container')).then(function(canvas) {
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/png');
+                    link.download = 'budget-plan.png';
+                    link.click();
+                });
+            });
+
+            newPlanButton.addEventListener('click', function() {
+                if (confirm('Are you sure you want to create a new plan? This will clear all current data.')) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
